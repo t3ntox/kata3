@@ -8,15 +8,20 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import java.util.zip.GZIPInputStream;
 
 public class RemoteMovieLoader implements MovieLoader {
-    private static final String url = "https://datasets.imdbws.com/title.basics.tsv.gz";
+    private final Function<String, Movie> deserialize;
+
+    public RemoteMovieLoader(Function<String, Movie> deserialize) {
+        this.deserialize = deserialize;
+    }
 
     @Override
     public List<Movie> loadAll() {
         try {
-            return loadFrom(new URL(url));
+            return loadFrom(new URL("https://datasets.imdbws.com/title.basics.tsv.gz"));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -27,9 +32,8 @@ public class RemoteMovieLoader implements MovieLoader {
     }
 
     private List<Movie> loadFrom(URLConnection urlConnection) throws IOException {
-        try (InputStream inputStream = unzip(urlConnection.getInputStream())) {
-            return loadFrom(inputStream);
-        }
+        InputStream inputStream = unzip(urlConnection.getInputStream());
+        return loadFrom(inputStream);
     }
 
     private List<Movie> loadFrom(InputStream inputStream) throws IOException {
@@ -48,16 +52,7 @@ public class RemoteMovieLoader implements MovieLoader {
     }
 
     private Movie toMovie(String line) {
-        return toMovie(line.split("\\t"));
-    }
-
-    private Movie toMovie(String[] split) {
-        return new Movie(split[1], toInt(split[7]));
-    }
-
-    private int toInt(String s) {
-        if (s.equals("\\N")) return -1;
-        return Integer.parseInt(s);
+        return deserialize.apply(line);
     }
 
     private BufferedReader toReader(InputStream inputStream) {
